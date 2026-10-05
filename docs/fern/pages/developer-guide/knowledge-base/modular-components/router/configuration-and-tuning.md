@@ -110,6 +110,7 @@ link no catalog and reject a configured policy type at startup.
 | `dynamo-default-cost-fn` | The default cost model with configurable scoring and sampling parameters. |
 | `thunderagent` | Honors the paired ThunderAgent classifier's worker/rank preference, then falls back to the least-loaded eligible worker. Enable both roles for program-aware admission and repacking; see [ThunderAgent Program Scheduler](../../../../use-cases/agents/thunderagent-program-scheduler.md#native-frontend-plugin). |
 | `dynamo-two-tier-cost-fn` | Ranks on two tiers instead of one additive cost: active-request load first, then device-KV prefix overlap. Prefers the worker holding the largest prefix overlap unless load is badly imbalanced. Thresholds and selection order ported from the experimental SGLang router's `cache_aware_zmq` policy. Thresholds are tunable; the defaults reproduce it exactly. |
+| `dynamo-jsew-sticky` | Join-shortest-expected-work with a session home: cost is the worker's queued prefill tokens plus this prompt's uncached tokens plus active requests times an EMA of declared output lengths; a session stays on its rendezvous-hash home (or the host's soft affinity target) unless another worker is cheaper by more than `hysteresis`. Two parameters. In-process port of the JSEW external router; a different cost from the default. |
 
 Write the instance into the same YAML file that `--router-policy-config` already points at:
 
@@ -214,6 +215,20 @@ experimental router exactly. Add any subset to tune it:
         balance_abs_threshold: 32
         balance_rel_threshold: 1.1
 ```
+
+`dynamo-jsew-sticky` has two parameters:
+
+```yaml
+    - name: dynamo-jsew-sticky
+      type: dynamo-jsew-sticky
+      parameters:
+        hysteresis: 0.05   # a session moves only when another worker is cheaper by more than this fraction
+        ema_alpha: 0.1     # smoothing of the declared-output-length belief that prices active requests
+```
+
+Requests must carry a session id (`X-Dynamo-Session-ID`) for the home to apply; without one the policy
+routes to the minimum cost. The decode term uses the output length requests declare (`max_tokens`); when
+none has been declared yet, active requests cost nothing and the rule is queued prefill plus uncached tokens.
 
 | Parameter | Default | Meaning |
 |---|---|---|

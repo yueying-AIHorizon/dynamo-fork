@@ -9,6 +9,7 @@
 //! Sequence tracking, eligibility, and admission remain in dynamo-kv-router.
 
 mod default;
+mod jsew_sticky;
 mod thunderagent;
 mod two_tier_cost_fn;
 pub use default::{DefaultWorkerSelector, default_factory, default_policy};
@@ -28,6 +29,7 @@ use dynamo_kv_router::plugins::{RouterPluginRegistry, RouterPluginRegistryError}
 pub fn register(registry: &mut RouterPluginRegistry) -> Result<(), RouterPluginRegistryError> {
     default::register(registry)?;
     two_tier_cost_fn::register(registry)?;
+    jsew_sticky::register(registry)?;
     thunderagent::register(registry)?;
     Ok(())
 }
@@ -80,6 +82,36 @@ worker_selection:
             .unwrap()
             .expect("a configured instance resolves to a factory");
 
+        let partition = RoutingPartitionRef::new("model", "default");
+        for worker_type in [
+            WorkerType::Aggregated,
+            WorkerType::Prefill,
+            WorkerType::Decode,
+        ] {
+            factory(&config, worker_type, partition);
+        }
+    }
+
+    /// The documented `dynamo-jsew-sticky` instance constructs for every stage.
+    #[test]
+    fn resolves_documented_jsew_sticky_yaml() {
+        let (config, resolved) = resolve(
+            r#"
+worker_selection:
+  aggregated: dynamo-jsew-sticky
+  prefill: dynamo-jsew-sticky
+  decode: dynamo-jsew-sticky
+  instances:
+    - name: dynamo-jsew-sticky
+      type: dynamo-jsew-sticky
+      parameters:
+        hysteresis: 0.05
+        ema_alpha: 0.1
+"#,
+        );
+        let factory = resolved
+            .unwrap()
+            .expect("a configured instance resolves to a factory");
         let partition = RoutingPartitionRef::new("model", "default");
         for worker_type in [
             WorkerType::Aggregated,
