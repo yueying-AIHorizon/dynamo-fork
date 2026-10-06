@@ -82,17 +82,17 @@ pub const POLICY_TYPE: &str = "dynamo-jsew";
 /// `1.0` the units argument alone suggests because `active_requests` counts every session, not
 /// only the ones that share a prefix; `0.13` took nearly all of the gain while leaving TTFT
 /// headroom that survived a seed change. Re-tune the set against a target trace.
-const DEFAULT_DECODE_WORK_SCALE: f64 = 17.601;
-const DEFAULT_DECODE_FOOTPRINT_WEIGHT: f64 = 1.526;
-const DEFAULT_EMA_ALPHA: f64 = 0.01737;
-const DEFAULT_DECODE_WORK_EXPONENT: f64 = 1.0;
-const DEFAULT_DECODE_LOAD_EXPONENT: f64 = 1.2;
-const DEFAULT_DECODE_SHARE_EXPONENT: f64 = 0.13;
+pub(crate) const DEFAULT_DECODE_WORK_SCALE: f64 = 17.601;
+pub(crate) const DEFAULT_DECODE_FOOTPRINT_WEIGHT: f64 = 1.526;
+pub(crate) const DEFAULT_EMA_ALPHA: f64 = 0.01737;
+pub(crate) const DEFAULT_DECODE_WORK_EXPONENT: f64 = 1.0;
+pub(crate) const DEFAULT_DECODE_LOAD_EXPONENT: f64 = 1.2;
+pub(crate) const DEFAULT_DECODE_SHARE_EXPONENT: f64 = 0.13;
 
 /// Which belief supplies the predicted remaining decode work.
 #[derive(Debug, Clone, Copy, Default, PartialEq, Eq, serde::Deserialize)]
 #[serde(rename_all = "snake_case")]
-enum EffectiveWorkPredictor {
+pub(crate) enum EffectiveWorkPredictor {
     /// Exponential moving average over the uncached prompt tokens already routed.
     #[default]
     EmaUncachedTokens,
@@ -106,24 +106,24 @@ enum EffectiveWorkPredictor {
 /// startup rather than ignored, so a misremembered name fails loudly.
 #[derive(Debug, Clone, Copy, serde::Deserialize)]
 #[serde(deny_unknown_fields, default)]
-struct Parameters {
+pub(crate) struct Parameters {
     /// Which belief supplies the predicted remaining decode work.
-    effective_work_predictor: EffectiveWorkPredictor,
+    pub(crate) effective_work_predictor: EffectiveWorkPredictor,
     /// Weight on the predicted-work term, relative to the request's own block count. `0.0`
     /// disables the hypothesis and leaves the stock footprint belief in charge.
-    decode_work_scale: f64,
+    pub(crate) decode_work_scale: f64,
     /// Weight retained on the stock decode-footprint term. `1.0` keeps it whole.
-    decode_footprint_weight: f64,
+    pub(crate) decode_footprint_weight: f64,
     /// Smoothing factor for the EMA, in `(0, 1]`. `1.0` degenerates to "last routed request".
-    ema_alpha: f64,
+    pub(crate) ema_alpha: f64,
     /// Exponent on the predicted-work-to-request-size ratio. `1.0` leaves the ratio linear.
-    decode_work_exponent: f64,
+    pub(crate) decode_work_exponent: f64,
     /// Exponent on the worker's decode backlog, normalized by the candidate mean. `1.0` charges
     /// backlog linearly; above `1.0` charges an already-loaded worker superlinearly.
-    decode_load_exponent: f64,
+    pub(crate) decode_load_exponent: f64,
     /// Exponent on the worker's active-request count, which un-shares the deduplicated decode
     /// footprint. `0.0` leaves the footprint as reported.
-    decode_share_exponent: f64,
+    pub(crate) decode_share_exponent: f64,
 }
 
 impl Default for Parameters {
@@ -141,7 +141,7 @@ impl Default for Parameters {
 }
 
 impl Parameters {
-    fn validate(&self) -> Result<(), WorkerSelectionPolicyProviderError> {
+    pub(crate) fn validate(&self) -> Result<(), WorkerSelectionPolicyProviderError> {
         if !self.decode_work_scale.is_finite() || !(0.0..=20.0).contains(&self.decode_work_scale) {
             return Err(WorkerSelectionPolicyProviderError::new(
                 "decode_work_scale must be a finite number between 0.0 and 20.0",
@@ -583,7 +583,7 @@ fn softmax_sample_row(
     count - 1
 }
 
-fn policy(
+pub(crate) fn policy(
     config: &KvRouterConfig,
     parameters: Parameters,
     role: WorkerType,

@@ -10,6 +10,7 @@
 
 mod default;
 mod jsew;
+mod jsew_lite;
 mod thunderagent;
 mod two_tier_cost_fn;
 pub use default::{DefaultWorkerSelector, default_factory, default_policy};
@@ -30,6 +31,7 @@ pub fn register(registry: &mut RouterPluginRegistry) -> Result<(), RouterPluginR
     default::register(registry)?;
     two_tier_cost_fn::register(registry)?;
     jsew::register(registry)?;
+    jsew_lite::register(registry)?;
     thunderagent::register(registry)?;
     Ok(())
 }
@@ -112,6 +114,35 @@ worker_selection:
         decode_work_exponent: 1.0
         decode_load_exponent: 1.2
         decode_share_exponent: 0.13
+"#,
+        );
+        let factory = resolved
+            .unwrap()
+            .expect("a configured instance resolves to a factory");
+        let partition = RoutingPartitionRef::new("model", "default");
+        for worker_type in [
+            WorkerType::Aggregated,
+            WorkerType::Prefill,
+            WorkerType::Decode,
+        ] {
+            factory(&config, worker_type, partition);
+        }
+    }
+
+    /// The documented `dynamo-jsew-lite` instance constructs for every stage.
+    #[test]
+    fn resolves_documented_jsew_lite_yaml() {
+        let (config, resolved) = resolve(
+            r#"
+worker_selection:
+  aggregated: dynamo-jsew-lite
+  prefill: dynamo-jsew-lite
+  decode: dynamo-jsew-lite
+  instances:
+    - name: dynamo-jsew-lite
+      type: dynamo-jsew-lite
+      parameters:
+        intensity: 0.5
 "#,
         );
         let factory = resolved
